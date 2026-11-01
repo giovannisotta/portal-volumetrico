@@ -1,7 +1,7 @@
 #include "motor.h"
 
 Motor* initMotor() {
-  Motor* motor = new Motor(DIR, STEP, STEPS_PER_REV, 0, 10000);
+  Motor* motor = new Motor(DIR, STEP, STEPS_PER_REV, 0, 5000); 
 
   pinMode(motor->p_dir, OUTPUT);
   pinMode(motor->p_step, OUTPUT);

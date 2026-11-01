@@ -3,8 +3,7 @@
 #error "FILTRO_MEDIANA nao definido no config.h"
 #endif
 
-
-static int median3(int a, int b, int c) {
+/*static int median3(int a, int b, int c) {
   if (a > b) { int t = a; a = b; b = t; }
   if (b > c) { int t = b; b = c; c = t; }
   return (a > b) ? a : b;
@@ -18,6 +17,30 @@ static int readFiltered(TofId id) {
 #else
   return readTof(id);
 #endif
+}*/
+
+#include <algorithm> // Necessário para std::sort
+
+#ifndef N_MEDIANA
+#define N_MEDIANA 5 // Define a quantidade de amostras (preferencialmente ímpar)
+#endif
+
+static int getMedian(int* samples, int n) {
+    std::sort(samples, samples + n);
+    return samples[n / 2];
+}
+
+static int readFiltered(TofId id) {
+#if FILTRO_MEDIANA
+    int samples[N_MEDIANA];
+    for (int i = 0; i < N_MEDIANA; i++) {
+        samples[i] = readTof(id);
+        if (samples[i] < 0) return -1; // Se qualquer leitura falhar, retorna erro
+    }
+    return getMedian(samples, N_MEDIANA);
+#else
+    return readTof(id);
+#endif
 }
 
 static bool readAll(Sample &s){ 
@@ -26,9 +49,14 @@ static bool readAll(Sample &s){
     dist[id] = readFiltered((TofId)id);
     if (dist[id] < 0) return false; 
   }
-  s.left = dist[TOF_LEFT];
-  s.top = dist[TOF_TOP];
-  s.right = dist[TOF_RIGHT];
+  s.left = (dist[TOF_LEFT] - AJUSTE);
+  s.top = (dist[TOF_TOP]);
+  s.right = (dist[TOF_RIGHT] - AJUSTE);
+  /*Serial.print("leitura tof\n");
+  printDist(s.left);
+  printDist(s.right);
+  printDist(s.top);
+  Serial.print("\n");*/
   return true;
 }
 
@@ -60,6 +88,11 @@ bool measureBaseline(Calib &c){
   c.base_left   = sum_l/counter;
   c.base_top    = sum_t/counter;
   c.base_right  = sum_r/counter;
+  Serial.print("leitura baseline\n");
+  printDist(c.base_left);
+  printDist(c.base_right);
+  printDist(c.base_top);
+  Serial.print("\n");
   return true;
 }
 static void advance(Motor* m, int k){
@@ -69,7 +102,7 @@ static void advance(Motor* m, int k){
 BoxResult acquireBox(Motor* motor, const Calib &calib){
   BoxResult box = {};
   static Sample buf[MAX_SAMPLES];
-  Sample s;
+  Sample s = {};
   do{
     int n = 0, ausents = 0;
     uint32_t step = 0;
@@ -88,6 +121,7 @@ BoxResult acquireBox(Motor* motor, const Calib &calib){
       step += K_STEPS;
       advance(motor, K_STEPS);
       if (!readRetry(s)) { box.status = CALC_ERR_SENSOR; return box; }
+      //Serial.print("Labubu\n");
     }
     box = calcBox(buf, n, calib);
   } while (box.status == CALC_ERR_FEW_SAMPLES);

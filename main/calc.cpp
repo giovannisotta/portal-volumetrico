@@ -1,4 +1,6 @@
 #include "calc.h"
+#include "Arduino.h"
+#include "config.h"
 
 struct Faces{
   float A;
@@ -46,12 +48,29 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
   faces.A = sqrtf(delta_s*delta_s + delta_d*delta_d);
   faces.B = (cross - delta_d)*faces.A/delta_s;
   
-  if (faces.B <= 0) { faces.status = CALC_ERR_LOW_CONF; return faces; }
+
+  Serial.printf("D=%.0f cross=%.1f dd=%.1f ds=%.1f A=%.1f B=%.1f\n",
+              calib.D, cross, delta_d, delta_s, faces.A, faces.B);
+  //if (faces.B <= 0) { faces.status = CALC_ERR_LOW_CONF; return faces; }
   
   faces.theta = atan2f(delta_d, delta_s);
   faces.status = 0;
   
   return faces;
+}
+
+static Faces fitReta(const Sample* s, int n, const Calib &c){
+  Faces f = {};
+  if (n < 3) { f.status = CALC_ERR_FEW_SAMPLES; return f; }
+
+  int a = n / 4, b = n - n / 4, m = b - a;      // miolo do buffer
+  float sl = 0, sr = 0;
+  for (int i = a; i < b; i++) { sl += s[i].left; sr += s[i].right; }
+
+  f.A = dSteps(s, 0, n - 1) * c.mm_per_step + K_STEPS * c.mm_per_step;    // comprimento: trecho inteiro
+  f.B = c.D - (sl + sr) / m;                    // largura: média do miolo
+  f.theta = 0;
+  return f;
 }
 
 static float calcHeight(const Sample* samples, int n, const Calib &calib){
@@ -67,14 +86,14 @@ static float calcWidth (Faces f){ return fminf(f.A, f.B);}
 static float calcTheta (Faces f){ return f.theta;}
 
 BoxResult calcBox(const Sample* samples, int n, const Calib &calib){
-  Faces faces = fitFaces(samples, n, calib);
+  Faces faces = CAIXA_RETA ? fitReta(samples, n, calib) : fitFaces(samples, n, calib);
   BoxResult box = {};
   if (faces.status != CALC_OK) { box.status = faces.status; return box; }
 
   float length, width, height, theta;
   
-  length = calcLength(faces);
-  width  = calcWidth (faces);
+  length = CAIXA_RETA ? faces.A : calcLength(faces);
+  width  = CAIXA_RETA ? faces.B : calcWidth (faces);
   height = calcHeight(samples, n, calib);
   theta  = calcTheta (faces);
 

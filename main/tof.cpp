@@ -20,14 +20,6 @@ static void initTof(TofId id) {
   }
 }
 
-int readTof(TofId id) {
-  VL53L0X_RangingMeasurementData_t measure;
-
-  sensors[id].dev.rangingTest(&measure, false); 
-
-  return (measure.RangeStatus != 4) ? measure.RangeMilliMeter : -1;
-}
-
 void printDist(int dist){
   if(dist >= 0) Serial.printf("Distance (mm): %d|\n", dist);
   else Serial.print(" out of range ");
@@ -45,3 +37,12 @@ void initAllTof(){
     initTof((TofId)id);
 
 }
+
+int readTof(TofId id) {
+  VL53L0X_RangingMeasurementData_t measure;
+  sensors[id].dev.rangingTest(&measure, false); 
+
+  return (measure.RangeStatus != 4) ? measure.RangeMilliMeter : -1;
+}
+
+
