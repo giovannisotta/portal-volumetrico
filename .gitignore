@@ -6,4 +6,3 @@ main/teste/teste
 server/venv/
 server/caixas.db
 __pycache__/
-main/secrets.h
