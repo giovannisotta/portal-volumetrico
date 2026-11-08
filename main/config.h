@@ -1,6 +1,5 @@
 #pragma once
 
-
 //motor
 #define DIR             12
 #define STEP            27
@@ -35,3 +34,9 @@
 #define AJUSTE          30
 
 #define CAIXA_RETA      0
+
+//Servidor
+#include "secrets.h"
+#define SERVER_URL      "url"
+
+
