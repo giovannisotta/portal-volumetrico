@@ -3,3 +3,7 @@ main/compile_commands.json
 main/.clangd
 main/tags
 main/teste/teste
+server/venv/
+server/caixas.db
+__pycache__/
+main/secrets.h
