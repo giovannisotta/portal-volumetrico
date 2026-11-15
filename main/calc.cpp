@@ -176,7 +176,22 @@ static float calcLength(Faces f){ return fmaxf(f.A, f.B);}
 static float calcWidth (Faces f){ return fminf(f.A, f.B);}
 static float calcTheta (Faces f){ return f.theta;}
 
+static void dbgExt(const Sample* s, int n, const Calib& c){
+  float b[3] = {c.base_left, c.base_right, c.base_top};
+  int lo[3] = {-1,-1,-1}, hi[3] = {-1,-1,-1};
+  for (int i = 0; i < n; i++){
+    float d[3] = {(float)s[i].left, (float)s[i].right, (float)s[i].top};
+    for (int k = 0; k < 3; k++)
+      if (d[k] < b[k] - MARGEM_MM){ if (lo[k] < 0) lo[k] = i; hi[k] = i; }
+  }
+  const char* nm[3] = {"L", "R", "T"};
+  for (int k = 0; k < 3; k++)
+    if (lo[k] >= 0)
+      Serial.printf("%s: %.0f mm\n", nm[k], dSteps(s, lo[k], hi[k]) * c.mm_per_step);
+}
+
 BoxResult calcBox(const Sample* samples, int n, const Calib &calib){
+  dbgExt(samples, n, calib);
   Faces faces = fitFaces(samples, n, calib);
   BoxResult box = {};
   if (faces.status != CALC_OK) { box.status = faces.status; return box; }
