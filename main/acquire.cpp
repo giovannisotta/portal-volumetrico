@@ -51,9 +51,9 @@ static bool readAll(Sample &s){
     dist[id] = readFiltered((TofId)id);
     if (dist[id] < 0) return false; 
   }
-  s.left = (dist[TOF_LEFT] - AJUSTE);
+  s.left = (dist[TOF_LEFT]);
   s.top = (dist[TOF_TOP]);
-  s.right = (dist[TOF_RIGHT] - AJUSTE);
+  s.right = (dist[TOF_RIGHT]);
   /*Serial.print("leitura tof\n");
   printDist(s.left);
   printDist(s.right);
@@ -69,8 +69,8 @@ static bool readRetry(Sample &s){
 
 static bool present(const Sample &s, const Calib &c){
   return (
-    s.left  < (c.base_left  - MARGEM_MM) &&
-    s.right < (c.base_right - MARGEM_MM) && 
+    s.left  < (c.base_left  - MARGEM_MM) ||
+    s.right < (c.base_right - MARGEM_MM) || 
     s.top   < (c.base_top   - MARGEM_MM));
 }
 
@@ -170,6 +170,7 @@ BoxResult acquireBox(Motor* motor, const Calib &calib){
       if (!readRetry(s)) { box.status = CALC_ERR_SENSOR; return box; }
       s.step = g_step;                       // NOVO
     }
+    Serial.printf("n=%d de %d\n", n, MAX_SAMPLES);
     box = calcBox(buf, n, calib);
   } while (box.status == CALC_ERR_FEW_SAMPLES);
   return box;

@@ -11,7 +11,6 @@ struct Faces{
 };
 enum Lat { LEFT, RIGHT, LAT_COUNT};
 static float dSteps (const Sample* s, int a, int b) { return float(s[b].step - s[a].step); }
-static float dLeft  (const Sample* s, int a, int b) { return float(s[b].left - s[a].left); }
 static void calcMin(const Sample* s, int n,int* mins){
   int i;
   mins[LEFT] = mins[RIGHT] = 0;
@@ -37,19 +36,31 @@ static float slopeLS(const Sample* s, int a, int b, bool left){
   return (den == 0) ? 0.0f : (m*sxy - sx*sy) / den;
 }
 
+
+// primeiro e último índice em que o lado enxerga a caixa (leitura abaixo do baseline)
+static bool sideRange(const Sample* s, int n, bool left, float base, int &lo, int &hi){
+  lo = hi = -1;
+  for (int i = 0; i < n; i++){
+    float d = left ? s[i].left : s[i].right;
+    if (d < base - MARGEM_MM){
+      if (lo < 0) lo = i;
+      hi = i;
+    }
+  }
+  return lo >= 0;
+}
 // NOVO: tan(theta) a partir de UM lado, usando a face mais longa em passos,
 // sem as bordas (onde o feixe pega só o canto da caixa).
-static bool sideTan(const Sample* s, int n, int m, bool left, float mm_per_step, float &tanT){
+static bool sideTan(const Sample* s, int lo, int hi, int m, bool left, float mm_per_step, float &tanT){
   int a, b;
-  if (m >= n - 1 - m) { a = 0; b = m; }       // face antes do mínimo
-  else                { a = m; b = n - 1; }   // face depois do mínimo
-  int t = std::max(1, (b - a) / 6);           // descarta ~1/6 de cada ponta
+  if (m - lo >= hi - m) { a = lo; b = m; }    // face antes do mínimo
+  else                  { a = m;  b = hi; }   // face depois do mínimo
+  int t = std::max(1, (b - a) / 6);
   a += t; b -= t;
-  if (b - a < 2) return false;                // poucos pontos pra regressão
-  tanT = fabsf(slopeLS(s, a, b, left)) / mm_per_step;  // mm/passo -> mm/mm
+  if (b - a < 2) return false;
+  tanT = fabsf(slopeLS(s, a, b, left)) / mm_per_step;
   return true;
 }
-
 static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
   Faces faces = {};
   if (n < 3) { faces.status = CALC_ERR_FEW_SAMPLES; return faces;}
@@ -60,8 +71,11 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
   // ERA: delta_sA / delta_sB / delta_d = reta por 2 pontos (extremos), só o lado esquerdo
   // VIROU: regressão nos pontos do miolo da face, nos DOIS lados, e média
   float tl = 0, tr = 0;
-  bool okL = sideTan(samples, n, mins[LEFT],  true,  calib.mm_per_step, tl);
-  bool okR = sideTan(samples, n, mins[RIGHT], false, calib.mm_per_step, tr);
+  int loL, hiL, loR, hiR;
+  bool okL = sideRange(samples, n, true,  calib.base_left,  loL, hiL)
+          && sideTan(samples, loL, hiL, mins[LEFT],  true,  calib.mm_per_step, tl);
+  bool okR = sideRange(samples, n, false, calib.base_right, loR, hiR)
+          && sideTan(samples, loR, hiR, mins[RIGHT], false, calib.mm_per_step, tr);
   if (!okL && !okR) { faces.status = CALC_ERR_FEW_SAMPLES; return faces; }
   float tanT = (okL && okR) ? (tl + tr) / 2 : (okL ? tl : tr);
   float theta = atanf(tanT);
@@ -137,40 +151,6 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
 // }
 
 
-static Faces fitReta(const Sample* s, int n, const Calib &c){
-  Faces f = {};
-  if (n < 3) { f.status = CALC_ERR_FEW_SAMPLES; return f; }
-
-  // Vetores locais para ordenar as distâncias lidas
-  int left_vals[MAX_SAMPLES];
-  int right_vals[MAX_SAMPLES];
-
-  for (int i = 0; i < n; i++) {
-    left_vals[i]  = s[i].left;
-    right_vals[i] = s[i].right;
-  }
-
-  // Ordena em ordem crescente (menores distâncias no início)
-  std::sort(left_vals, left_vals + n);
-  std::sort(right_vals, right_vals + n);
-
-  // Garante que o número de amostras avaliadas não excede o total de amostras recolhidas
-  int k = std::min(n, K_MENORES_MEDIANA);
-
-  // Obtém o valor central (mediana) do conjunto das menores distâncias
-  float min_left_median  = left_vals[k / 2];
-  float min_right_median = right_vals[k / 2];
-
-  // Comprimento total percorrido em mm
-  f.A = dSteps(s, 3, n - 3) * c.mm_per_step;
-  
-  // Largura = Distância total entre os sensores - (mediana dos mínimos da esquerda + direita)
-  f.B = c.D - (min_left_median + min_right_median) + AJUSTE;
-  
-  f.theta = 0.0f;
-  f.status = CALC_OK;
-  return f;
-}
 
 
 // static float calcHeight(const Sample* samples, int n, const Calib &calib){
@@ -188,7 +168,7 @@ static float calcHeight(const Sample* samples, int n, const Calib &calib) {
       min_dist_top = samples[i].top;
     }
   }
-  float height = BASE_TOP - min_dist_top + AJUSTE;
+  float height = calib.base_top - min_dist_top;
   return (height < 0) ? 0.0f : height;
 }
 
@@ -197,23 +177,14 @@ static float calcWidth (Faces f){ return fminf(f.A, f.B);}
 static float calcTheta (Faces f){ return f.theta;}
 
 BoxResult calcBox(const Sample* samples, int n, const Calib &calib){
-  Faces faces = CAIXA_RETA ? fitReta(samples, n, calib) : fitFaces(samples, n, calib);
+  Faces faces = fitFaces(samples, n, calib);
   BoxResult box = {};
   if (faces.status != CALC_OK) { box.status = faces.status; return box; }
 
-  float length, width, height, theta;
-  
-  length = CAIXA_RETA ? faces.A : calcLength(faces);
-  width  = CAIXA_RETA ? faces.B : calcWidth (faces);
-  height = calcHeight(samples, n, calib);
-  theta  = calcTheta (faces);
-
-
-  box.height = height;
-  box.length = length;
-  box.width  = width;
-  box.theta  = theta;
+  box.length = calcLength(faces);
+  box.width  = calcWidth(faces);
+  box.height = calcHeight(samples, n, calib);
+  box.theta  = calcTheta(faces);
   box.status = faces.status;
-
   return box;
 }

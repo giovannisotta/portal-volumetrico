@@ -60,5 +60,5 @@ int readTof(TofId id) {
   if (measure.RangeStatus == 4) return -1;
   float m = measure.RangeMilliMeter;
   const Cal &c = cal[id];
-  return lroundf(c.c2 * m * m + c.c1 * m + c.c0);
+  return max(0, (int)lroundf(c.c2 * m * m + c.c1 * m + c.c0));
 }

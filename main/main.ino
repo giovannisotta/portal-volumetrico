@@ -70,9 +70,19 @@ void setup() {
 
 void motorTask(void*)  { for(;;){ stepMotor(motor); vTaskDelay(1); } }
 void sensorTask(void*) {
-  for(;;){
+  for (;;) {
     BoxResult r = acquireBox(motor, calib);
-    if (r.status == CALC_OK) xQueueSend(qBox, &r, 0);
+
+    if (r.status != CALC_OK) {
+      Serial.printf("Erro: status=%d\n", r.status);
+      vTaskDelay(pdMS_TO_TICKS(100));   // evita inundar o Serial se o erro repetir
+      continue;
+    }
+
+    Serial.printf("length=%.1f width=%.1f height=%.1f theta=%.1f graus\n",
+                  r.length, r.width, r.height, r.theta * 180.0f / PI);
+
+    xQueueSend(qBox, &r, 0);
   }
 }
 void httpTask(void*) {
