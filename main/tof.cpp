@@ -5,6 +5,13 @@
 #include <Wire.h>
 #include <Adafruit_VL53L0X.h>
 
+struct Cal { float c2, c1, c0; };   // real = c2*m*m + c1*m + c0
+static const Cal cal[TOF_COUNT] = {
+  { -5.962247e-04f, 1.186703f, -34.6185f },   // left  (curva)
+  {  0.000000e+00f, 0.946124f, -12.6348f },   // top   (reta)
+  {  0.000000e+00f, 0.994827f, -28.5091f },   // right (reta)
+};
+
 struct ToFSensor { int xshut; int addr; Adafruit_VL53L0X dev; };
 static ToFSensor sensors[TOF_COUNT] = {
   { XSHUT_LEFT,  TOF_LEFT_ADDR  },
@@ -40,11 +47,18 @@ void initAllTof(){
 
 }
 
+// int readTof(TofId id) {
+//   VL53L0X_RangingMeasurementData_t measure;
+//   sensors[id].dev.rangingTest(&measure, false); 
+//
+//   return (measure.RangeStatus != 4) ? measure.RangeMilliMeter : -1;
+// }
+
 int readTof(TofId id) {
   VL53L0X_RangingMeasurementData_t measure;
-  sensors[id].dev.rangingTest(&measure, false); 
-
-  return (measure.RangeStatus != 4) ? measure.RangeMilliMeter : -1;
+  sensors[id].dev.rangingTest(&measure, false);
+  if (measure.RangeStatus == 4) return -1;
+  float m = measure.RangeMilliMeter;
+  const Cal &c = cal[id];
+  return lroundf(c.c2 * m * m + c.c1 * m + c.c0);
 }
-
-
