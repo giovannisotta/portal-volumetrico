@@ -1,5 +1,7 @@
 #pragma once
+#include "secrets.h"
 
+#define BASE_TOP        370
 //motor
 #define DIR             12
 #define STEP            27
@@ -20,23 +22,22 @@
 #define MARGEM_MM       20
 
 //Samples
-#define K_STEPS         10
-#define MM_PER_STEP     (float) ((PI * 24.9f) / 200.0f)  //FAZER
+#define K_STEPS         20
+#define MM_PER_STEP     0.455f  //FAZER
 #define COMPR_MAX_MM    400
 #define MAX_SAMPLES     ((int)(COMPR_MAX_MM / (K_STEPS * MM_PER_STEP) * 1.3f))
-#define N_FIM           5
+#define N_FIM           3
 #define MAX_FALHAS      25
 
 //Calib
 #define D_MM            270.0f   // TODO: medir com régua
 #define DS_MIN_MM       20.0f   // TODO: ajustar com caixas reais
-#define FILTRO_MEDIANA  1
-#define AJUSTE          30
-
-#define CAIXA_RETA      0
+#define FILTRO_MEDIANA  0
+#define AJUSTE          15
+#define K_MENORES_MEDIANA 3
+#define CAIXA_RETA      1
 
 //Servidor
-#include "secrets.h"
-#define SERVER_URL      "url"
-
-
+#define SERVER_URL      "http://10.177.227.149:5000/caixas"
+#define MODO_SIMULACAO  1
+#define SIM_INTERVALO_MS 3000

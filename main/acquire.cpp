@@ -1,4 +1,7 @@
 #include "acquire.h"
+#include "tof.h"
+#include "config.h"
+#include <algorithm> 
 #ifndef FILTRO_MEDIANA
 #error "FILTRO_MEDIANA nao definido no config.h"
 #endif
@@ -19,10 +22,9 @@ static int readFiltered(TofId id) {
 #endif
 }*/
 
-#include <algorithm> // Necessário para std::sort
 
 #ifndef N_MEDIANA
-#define N_MEDIANA 5 // Define a quantidade de amostras (preferencialmente ímpar)
+#define N_MEDIANA 3 // Define a quantidade de amostras (preferencialmente ímpar)
 #endif
 
 static int getMedian(int* samples, int n) {
@@ -67,37 +69,86 @@ static bool readRetry(Sample &s){
 
 static bool present(const Sample &s, const Calib &c){
   return (
-    s.left  < (c.base_left  - MARGEM_MM) ||
-    s.right < (c.base_right - MARGEM_MM) ||
+    s.left  < (c.base_left  - MARGEM_MM) &&
+    s.right < (c.base_right - MARGEM_MM) && 
     s.top   < (c.base_top   - MARGEM_MM));
 }
 
 bool measureBaseline(Calib &c){
   int i, counter = 0;
   Sample s;
-  float sum_l = 0, sum_t = 0, sum_r = 0;
+  float sum[3][20] = {};
   for (i = 0; i < 20; i++){
     if(readAll(s)){
-      sum_l += s.left;
-      sum_t += s.top;
-      sum_r += s.right;
+      sum[TOF_LEFT][i]  = s.left;
+      sum[TOF_TOP][i]   = s.top;
+      sum[TOF_RIGHT][i] = s.right;
       counter++;
     }
   }
+  for(i = 0; i < 3; i++){
+    std::sort(sum[i], sum[i]+counter);
+  }
+  
   if (counter == 0) { return false; }
-  c.base_left   = sum_l/counter;
-  c.base_top    = sum_t/counter;
-  c.base_right  = sum_r/counter;
-  Serial.print("leitura baseline\n");
-  printDist(c.base_left);
-  printDist(c.base_right);
-  printDist(c.base_top);
-  Serial.print("\n");
+  c.base_left   = sum[TOF_LEFT][counter/2];
+  c.base_top    = sum[TOF_TOP][counter/2];
+  c.base_right  = sum[TOF_RIGHT][counter/2];
+  // Serial.print("leitura baseline\n");
+  // printDist(c.base_left);
+  // printDist(c.base_right);
+  // printDist(c.base_top);
+  // Serial.print("\n");
   return true;
 }
-static void advance(Motor* m, int k){
-  for (int i = 0; i < k; i++) stepMotor(m);
-}
+// static void advance(Motor* m, int k){
+//   for (int i = 0; i < k; i++) stepMotor(m);
+// }
+
+// BoxResult acquireBox(Motor* motor, const Calib &calib){
+//   BoxResult box = {};
+//   static Sample buf[MAX_SAMPLES];
+//   Sample s = {};
+//   do{
+//     int n = 0, ausents = 0;
+//     uint32_t step = 0;
+//     while (true) {
+//       if (!readRetry(s)) { box.status = CALC_ERR_SENSOR; return box; }
+//       if (present(s, calib)) break;
+//       advance(motor, K_STEPS);
+//     }
+//     while (true){
+//       if(present(s, calib)){
+//         ausents = 0;
+//         s.step = step;
+//         if(n == MAX_SAMPLES) {box.status = CALC_ERR_BUFFER_FULL; return box;}
+//         buf[n++] = s;
+//       }else if (++ausents >= N_FIM) break;
+//       step += K_STEPS;
+//       advance(motor, K_STEPS);
+//       if (!readRetry(s)) { box.status = CALC_ERR_SENSOR; return box; }
+//       //Serial.print("Labubu\n");
+//     }
+//     box = calcBox(buf, n, calib);
+//   } while (box.status == CALC_ERR_FEW_SAMPLES);
+//   return box;
+// }
+//
+// static BoxResult gerarCaixaAleatoria() {
+//   BoxResult r = {};
+//
+//   // Gera dimensões entre 50.0 mm e 250.0 mm (em passos de 0.1 mm)
+//   float d1 = random(500, 2501) / 10.0f;
+//   float d2 = random(500, 2501) / 10.0f;
+//
+//   r.length = max(d1, d2);
+//   r.width  = min(d1, d2);
+//   r.height = random(300, 2001) / 10.0f;
+//   r.theta  = 0.0f;
+//   r.status = CALC_OK;
+//
+//   return r;
+// }
 
 BoxResult acquireBox(Motor* motor, const Calib &calib){
   BoxResult box = {};
@@ -105,23 +156,19 @@ BoxResult acquireBox(Motor* motor, const Calib &calib){
   Sample s = {};
   do{
     int n = 0, ausents = 0;
-    uint32_t step = 0;
     while (true) {
       if (!readRetry(s)) { box.status = CALC_ERR_SENSOR; return box; }
+      s.step = g_step;                       // NOVO
       if (present(s, calib)) break;
-      advance(motor, K_STEPS);
     }
     while (true){
-      if(present(s, calib)){
+      if (present(s, calib)){
         ausents = 0;
-        s.step = step;
-        if(n == MAX_SAMPLES) {box.status = CALC_ERR_BUFFER_FULL; return box;}
+        if (n == MAX_SAMPLES) { box.status = CALC_ERR_BUFFER_FULL; return box; }
         buf[n++] = s;
-      }else if (++ausents >= N_FIM) break;
-      step += K_STEPS;
-      advance(motor, K_STEPS);
+      } else if (++ausents >= N_FIM) break;
       if (!readRetry(s)) { box.status = CALC_ERR_SENSOR; return box; }
-      //Serial.print("Labubu\n");
+      s.step = g_step;                       // NOVO
     }
     box = calcBox(buf, n, calib);
   } while (box.status == CALC_ERR_FEW_SAMPLES);

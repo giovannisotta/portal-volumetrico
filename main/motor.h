@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "config.h"
+#include <atomic>
 
 struct Motor {
   const uint8_t p_dir;
@@ -21,4 +21,4 @@ void motorInvertdir(Motor* motor);
 /* actually running the motor */
 void stepMotor(Motor* motor);
 void revolMotor(Motor* motor);
-
+extern std::atomic<uint32_t> g_step;

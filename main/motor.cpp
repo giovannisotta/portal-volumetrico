@@ -1,4 +1,8 @@
+// motor.cpp
 #include "motor.h"
+#include "config.h"          // DIR, STEP, STEPS_PER_REV
+
+std::atomic<uint32_t> g_step{0};   // NOVO, perto do topo
 
 Motor* initMotor() {
   Motor* motor = new Motor(DIR, STEP, STEPS_PER_REV, 0, 5000); 
@@ -22,13 +26,13 @@ void motorInvertdir(Motor* motor) {
 }
 
 /* actually running the motor */
-void stepMotor(Motor* motor) {
-  digitalWrite(motor->p_step, HIGH);
-  delayMicroseconds(motor->step_offset);
-
-  digitalWrite(motor->p_step, LOW);
-  delayMicroseconds(motor->step_offset);
-}
+// void stepMotor(Motor* motor) {
+//   digitalWrite(motor->p_step, HIGH);
+//   delayMicroseconds(motor->step_offset);
+//
+//   digitalWrite(motor->p_step, LOW);
+//   delayMicroseconds(motor->step_offset);
+// }
 
 void revolMotor(Motor* motor) {
   int i;
@@ -36,4 +40,13 @@ void revolMotor(Motor* motor) {
   for (i = 0; i < motor->steps_per_rev; i++) {
     stepMotor(motor);
   }
+}
+
+
+void stepMotor(Motor* motor) {
+  digitalWrite(motor->p_step, HIGH);
+  delayMicroseconds(motor->step_offset);
+  digitalWrite(motor->p_step, LOW);
+  delayMicroseconds(motor->step_offset);
+  g_step++;                          // NOVO
 }

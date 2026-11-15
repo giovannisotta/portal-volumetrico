@@ -1,7 +1,9 @@
+// tof.cpp
 #include "tof.h"
-#include "Arduino.h"
-#include "Wire.h"
-#include "Adafruit_VL53L0X.h"
+#include "config.h"          // XSHUT_*, I2C_*, endereços
+#include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_VL53L0X.h>
 
 struct ToFSensor { int xshut; int addr; Adafruit_VL53L0X dev; };
 static ToFSensor sensors[TOF_COUNT] = {
