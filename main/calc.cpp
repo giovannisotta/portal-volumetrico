@@ -61,7 +61,7 @@ static bool sideTan(const Sample* s, int lo, int hi, int m, bool left, float mm_
   tanT = fabsf(slopeLS(s, a, b, left)) / mm_per_step;
   return true;
 }
-static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
+static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float height){
   Faces faces = {};
   if (n < 3) { faces.status = CALC_ERR_FEW_SAMPLES; return faces;}
 
@@ -82,7 +82,7 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
 
   // ERA: delta_s = passos da face * mm_per_step  (só a face usada)
   // VIROU: L = extensão total da caixa ao longo da esteira
-  float L = dSteps(samples, 0, n - 1) * calib.mm_per_step;
+  float L = dSteps(samples, 0, n - 1) * calib.mm_per_step - (EXTRA_L0 - EXTRA_LK * height);
   if (L < calib.ds_min) { faces.status = CALC_ERR_ZERO_DS; return faces; }
 
   // ERA: cross = D - (left do ponto mínimo + right do ponto mínimo)  -> 1 leitura de cada
@@ -192,13 +192,14 @@ static void dbgExt(const Sample* s, int n, const Calib& c){
 
 BoxResult calcBox(const Sample* samples, int n, const Calib &calib){
   dbgExt(samples, n, calib);
-  Faces faces = fitFaces(samples, n, calib);
+  float height = calcHeight(samples, n, calib);
+  Faces faces = fitFaces(samples, n, calib, height);
   BoxResult box = {};
   if (faces.status != CALC_OK) { box.status = faces.status; return box; }
 
   box.length = calcLength(faces);
   box.width  = calcWidth(faces);
-  box.height = calcHeight(samples, n, calib);
+  box.height = height;
   box.theta  = calcTheta(faces);
   box.status = faces.status;
   return box;
