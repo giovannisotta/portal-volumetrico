@@ -34,7 +34,8 @@
 #define FILTRO_MEDIANA  0
 #define K_MENORES_MEDIANA 3
 #define EXTRA_L0        57.0f
-#define EXTRE_LK        0.12f
+#define EXTRA_LK        0.12f
+#define W_OFFSET        21.0f
 
 //Servidor
 #define SERVER_URL      "http://10.177.227.149:5000/caixas"

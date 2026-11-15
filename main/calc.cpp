@@ -78,6 +78,7 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float h
           && sideTan(samples, loR, hiR, mins[RIGHT], false, calib.mm_per_step, tr);
   if (!okL && !okR) { faces.status = CALC_ERR_FEW_SAMPLES; return faces; }
   float tanT = (okL && okR) ? (tl + tr) / 2 : (okL ? tl : tr);
+  if (tanT < 0.07f) tanT = 0;
   float theta = atanf(tanT);
 
   // ERA: delta_s = passos da face * mm_per_step  (só a face usada)
@@ -89,9 +90,10 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float h
   // VIROU: mesma ideia, mas com mediana das menores leituras (como na fitReta)
   int lv[MAX_SAMPLES], rv[MAX_SAMPLES];
   for (int i = 0; i < n; i++) { lv[i] = samples[i].left; rv[i] = samples[i].right; }
+
   std::sort(lv, lv + n); std::sort(rv, rv + n);
   int k = std::min(n, K_MENORES_MEDIANA);
-  float W = calib.D - (lv[k/2] + rv[k/2]);   // extensão lateral
+  float W = calib.D - (lv[k/2] + rv[k/2]) - W_OFFSET;   // extensão lateral
 
   // ERA: A = sqrt(ds² + dd²);  B = (cross - dd) * A / ds
   // VIROU: sistema das duas extensões
@@ -110,56 +112,6 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float h
   faces.status = CALC_OK;
   return faces;
 }
-
-// static Faces fitFaces (const Sample* samples, int n, const Calib &calib){
-//   Faces faces = {};
-//   if (n < 3) { faces.status = CALC_ERR_FEW_SAMPLES; return faces;}
-//
-//   float delta_sA, delta_sB, delta_s, delta_d, cross;
-//   int mins[LAT_COUNT] = {};
-//
-//   calcMin(samples, n, mins);
-//   delta_sA = dSteps(samples, 0, mins[LEFT]);
-//   delta_sB = dSteps(samples, mins[LEFT], n - 1);
-//
-//   if (delta_sA > delta_sB){
-//     delta_s = delta_sA;
-//     delta_d = dLeft(samples, 0, mins[LEFT]);
-//   }else{
-//     delta_s = delta_sB;
-//     delta_d = dLeft(samples, mins[LEFT], n-1);
-//   }
-//
-//   delta_s = delta_s * calib.mm_per_step;
-//   delta_d = fabsf(delta_d);
-//
-//   if (delta_s < calib.ds_min) { faces.status = CALC_ERR_ZERO_DS; return faces;}
-//
-//   cross = calib.D - (samples[mins[LEFT]].left + samples[mins[RIGHT]].right);
-//   faces.A = sqrtf(delta_s*delta_s + delta_d*delta_d);
-//   faces.B = (cross - delta_d)*faces.A/delta_s;
-//
-//
-//   Serial.printf("D=%.0f cross=%.1f dd=%.1f ds=%.1f A=%.1f B=%.1f\n",
-//               calib.D, cross, delta_d, delta_s, faces.A, faces.B);
-//   //if (faces.B <= 0) { faces.status = CALC_ERR_LOW_CONF; return faces; }
-//
-//   faces.theta = atan2f(delta_d, delta_s);
-//   faces.status = 0;
-//
-//   return faces;
-// }
-
-
-
-
-// static float calcHeight(const Sample* samples, int n, const Calib &calib){
-//   int i;
-//   float min_height = samples[0].top;
-//   for (i = 1; i < n; i++)
-//        min_height = (min_height < samples[i].top) ? min_height : samples[i].top;
-//   return (calib.base_top - min_height);
-// }
 
 static float calcHeight(const Sample* samples, int n, const Calib &calib) {
   float min_dist_top = samples[0].top;
