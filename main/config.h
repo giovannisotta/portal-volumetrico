@@ -36,6 +36,8 @@
 #define EXTRA_L0        48.0f
 #define EXTRA_LK        0.0f
 #define W_OFFSET        17.0f
+#define W_CORNER_K      17.0f   // compensa o arredondamento das quinas laterais (calibrar entre 14 e 20)
+#define L_CORNER_K      7.0f    // compensa o atraso de borda nas pontas anguladas (calibrar entre 5 e 10)
 
 //Servidor
 #define SERVER_URL      "http://10.177.227.149:5000/caixas"

@@ -63,13 +63,11 @@ static bool sideTan(const Sample* s, int lo, int hi, int m, bool left, float mm_
 }
 static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float height){
   Faces faces = {};
-  if (n < 3) { faces.status = CALC_ERR_FEW_SAMPLES; return faces;}
+  if (n < 3) { faces.status = CALC_ERR_FEW_SAMPLES; return faces; }
 
   int mins[LAT_COUNT] = {};
   calcMin(samples, n, mins);
 
-  // ERA: delta_sA / delta_sB / delta_d = reta por 2 pontos (extremos), só o lado esquerdo
-  // VIROU: regressão nos pontos do miolo da face, nos DOIS lados, e média
   float tl = 0, tr = 0;
   int loL, hiL, loR, hiR;
   bool okL = sideRange(samples, n, true,  calib.base_left,  loL, hiL)
@@ -77,36 +75,31 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float h
   bool okR = sideRange(samples, n, false, calib.base_right, loR, hiR)
           && sideTan(samples, loR, hiR, mins[RIGHT], false, calib.mm_per_step, tr);
   if (!okL && !okR) { faces.status = CALC_ERR_FEW_SAMPLES; return faces; }
+
   float tanT = (okL && okR) ? (tl + tr) / 2 : (okL ? tl : tr);
   if (tanT < 0.07f) tanT = 0;
   float theta = atanf(tanT);
 
-  // ERA: delta_s = passos da face * mm_per_step  (só a face usada)
-  // VIROU: L = extensão total da caixa ao longo da esteira
-  float L = dSteps(samples, 0, n - 1) * calib.mm_per_step - (EXTRA_L0 - EXTRA_LK * height);
-  if (L < calib.ds_min) { faces.status = CALC_ERR_ZERO_DS; return faces; }
-
-  // ERA: cross = D - (left do ponto mínimo + right do ponto mínimo)  -> 1 leitura de cada
-  // VIROU: mesma ideia, mas com mediana das menores leituras (como na fitReta)
-  int lv[MAX_SAMPLES], rv[MAX_SAMPLES];
-  for (int i = 0; i < n; i++) { lv[i] = samples[i].left; rv[i] = samples[i].right; }
-
-  std::sort(lv, lv + n); std::sort(rv, rv + n);
-  int k = std::min(n, K_MENORES_MEDIANA);
-  Serial.printf("l=%d r=%d soma=%d\n", lv[k/2], rv[k/2], lv[k/2] + rv[k/2]);   // <-- NOVA
-  float W = calib.D - (lv[k/2] + rv[k/2]) - W_OFFSET;   // extensão lateral
-
-  // ERA: A = sqrt(ds² + dd²);  B = (cross - dd) * A / ds
-  // VIROU: sistema das duas extensões
-  //   L = A cosθ + B sinθ
-  //   W = A sinθ + B cosθ
   float c = cosf(theta), sn = sinf(theta), c2 = c*c - sn*sn;   // cos(2θ)
   if (c2 < 0.1f) { faces.status = CALC_ERR_LOW_CONF; return faces; }  // ~45°: sistema singular
+
+  float sin2t = 2.0f * c * sn;   // sin(2θ): 0 quando reta, 1 quando a 45°
+
+  float L = dSteps(samples, 0, n - 1) * calib.mm_per_step
+          - (EXTRA_L0 - EXTRA_LK * height)
+          + L_CORNER_K * sin2t;
+  if (L < calib.ds_min) { faces.status = CALC_ERR_ZERO_DS; return faces; }
+
+  int lv[MAX_SAMPLES], rv[MAX_SAMPLES];
+  for (int i = 0; i < n; i++) { lv[i] = samples[i].left; rv[i] = samples[i].right; }
+  std::sort(lv, lv + n); std::sort(rv, rv + n);
+
+  Serial.printf("l=%d r=%d soma=%d\n", lv[0], rv[0], lv[0] + rv[0]);
+  float W = calib.D - (lv[0] + rv[0]) - W_OFFSET + W_CORNER_K * sin2t;
+
   faces.A = (L*c - W*sn) / c2;
   faces.B = (W*c - L*sn) / c2;
 
-  // ERA: checagem de B <= 0 comentada
-  // VIROU: reativada (e vale pra A também)
   if (faces.A <= 0 || faces.B <= 0) { faces.status = CALC_ERR_LOW_CONF; return faces; }
 
   faces.theta  = theta;
