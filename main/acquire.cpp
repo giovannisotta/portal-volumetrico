@@ -70,8 +70,7 @@ static bool readRetry(Sample &s){
 static bool present(const Sample &s, const Calib &c){
   return (
     s.left  < (c.base_left  - MARGEM_MM) ||
-    s.right < (c.base_right - MARGEM_MM) || 
-    s.top   < (c.base_top   - MARGEM_MM));
+    s.right < (c.base_right - MARGEM_MM));
 }
 
 bool measureBaseline(Calib &c){

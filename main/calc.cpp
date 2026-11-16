@@ -93,6 +93,7 @@ static Faces fitFaces (const Sample* samples, int n, const Calib &calib, float h
 
   std::sort(lv, lv + n); std::sort(rv, rv + n);
   int k = std::min(n, K_MENORES_MEDIANA);
+  Serial.printf("l=%d r=%d soma=%d\n", lv[k/2], rv[k/2], lv[k/2] + rv[k/2]);   // <-- NOVA
   float W = calib.D - (lv[k/2] + rv[k/2]) - W_OFFSET;   // extensão lateral
 
   // ERA: A = sqrt(ds² + dd²);  B = (cross - dd) * A / ds
@@ -129,17 +130,29 @@ static float calcWidth (Faces f){ return fminf(f.A, f.B);}
 static float calcTheta (Faces f){ return f.theta;}
 
 static void dbgExt(const Sample* s, int n, const Calib& c){
-  float b[3] = {c.base_left, c.base_right, c.base_top};
-  int lo[3] = {-1,-1,-1}, hi[3] = {-1,-1,-1};
+  float b[3] = { c.base_left, c.base_right, c.base_top };
+  int32_t lo[3] = {0,0,0}, hi[3] = {0,0,0};
+  bool ok[3] = {false, false, false};
   for (int i = 0; i < n; i++){
-    float d[3] = {(float)s[i].left, (float)s[i].right, (float)s[i].top};
-    for (int k = 0; k < 3; k++)
-      if (d[k] < b[k] - MARGEM_MM){ if (lo[k] < 0) lo[k] = i; hi[k] = i; }
+    float d[3] = { (float)s[i].left, (float)s[i].right, (float)s[i].top };
+    for (int k = 0; k < 3; k++){
+      if (d[k] < b[k] - MARGEM_MM){
+        if (!ok[k]) { lo[k] = (int32_t)s[i].step; ok[k] = true; }
+        hi[k] = (int32_t)s[i].step;
+      }
+    }
   }
-  const char* nm[3] = {"L", "R", "T"};
-  for (int k = 0; k < 3; k++)
-    if (lo[k] >= 0)
-      Serial.printf("%s: %.0f mm\n", nm[k], dSteps(s, lo[k], hi[k]) * c.mm_per_step);
+  if (!ok[0] || !ok[1] || !ok[2]) return;
+  float mm = c.mm_per_step;
+  int32_t latLo = std::max(lo[0], lo[1]), latHi = std::min(hi[0], hi[1]);
+  int32_t allLo = std::max(latLo, lo[2]), allHi = std::min(latHi, hi[2]);
+  int32_t anyLo = std::min(std::min(lo[0], lo[1]), lo[2]);
+  int32_t anyHi = std::max(std::max(hi[0], hi[1]), hi[2]);
+  Serial.printf("L=%.0f R=%.0f T=%.0f | L&&R=%.0f | todos&&=%.0f | ||=%.0f mm\n",
+    (hi[0]-lo[0])*mm, (hi[1]-lo[1])*mm, (hi[2]-lo[2])*mm,
+    (latHi-latLo)*mm, (allHi-allLo)*mm, (anyHi-anyLo)*mm);
+  Serial.printf("inicio rel. a L: R=%.0f T=%.0f mm | fim rel. a L: R=%.0f T=%.0f mm\n",
+    (lo[1]-lo[0])*mm, (lo[2]-lo[0])*mm, (hi[1]-hi[0])*mm, (hi[2]-hi[0])*mm);
 }
 
 BoxResult calcBox(const Sample* samples, int n, const Calib &calib){
