@@ -79,9 +79,9 @@ bool measureBaseline(Calib &c){
   float sum[3][20] = {};
   for (i = 0; i < 20; i++){
     if(readAll(s)){
-      sum[TOF_LEFT][i]  = s.left;
-      sum[TOF_TOP][i]   = s.top;
-      sum[TOF_RIGHT][i] = s.right;
+      sum[TOF_LEFT][counter]  = s.left;
+      sum[TOF_TOP][counter]   = s.top;
+      sum[TOF_RIGHT][counter] = s.right;
       counter++;
     }
   }

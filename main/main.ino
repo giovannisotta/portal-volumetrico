@@ -56,6 +56,13 @@ void setup() {
   }
   Serial.printf("Baseline: left=%.1f top=%.1f right=%.1f\n",
                 calib.base_left, calib.base_top, calib.base_right);
+  /*for (int i = 0; i < 100; i++) stepMotor(motor);   // tira a folga da correia
+  Serial.println("Marque a posicao inicial. Comeca em 10 s...");
+  delay(10000);
+  uint32_t g0 = g_step;
+  for (int i = 0; i < 500; i++) stepMotor(motor);
+  Serial.printf("passos = %u\n", (unsigned)(g_step - g0));
+  while (true) delay(1000);*/
 
   // dentro do setup(), depois do baseline:
   qBox = xQueueCreate(8, sizeof(BoxResult));

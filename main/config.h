@@ -22,7 +22,7 @@
 
 //Samples
 #define K_STEPS         20
-#define MM_PER_STEP     0.455f
+#define MM_PER_STEP     0.466f
 #define COMPR_MAX_MM    400
 #define MAX_SAMPLES     200
 #define N_FIM           3
@@ -33,9 +33,9 @@
 #define DS_MIN_MM       20.0f
 #define FILTRO_MEDIANA  0
 #define K_MENORES_MEDIANA 3
-#define EXTRA_L0        57.0f
-#define EXTRA_LK        0.12f
-#define W_OFFSET        21.0f
+#define EXTRA_L0        48.0f
+#define EXTRA_LK        0.0f
+#define W_OFFSET        17.0f
 
 //Servidor
 #define SERVER_URL      "http://10.177.227.149:5000/caixas"
